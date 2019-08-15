@@ -11,6 +11,19 @@ public class FastSplineEditor
 {
     private int selectedIndex = -1;
 
+    private bool preview;
+    private float previewTime;
+
+    public override void OnInspectorGUI()
+    {
+        base.OnInspectorGUI();
+
+        var self = target as FastSpline;
+
+        preview = GUILayout.Toggle(preview, "Preview");
+        previewTime = EditorGUILayout.Slider("Preview Time", previewTime, 0.0f, 1.0f);
+    }
+
     public void OnSceneGUI()
     {
         var self = target as FastSpline;
@@ -56,6 +69,15 @@ public class FastSplineEditor
                 if (Handles.Button(w0, Quaternion.identity, 0.5f, 0.5f, Handles.RectangleHandleCap))
                     selectedIndex = i;
             }
+        }
+
+        if (preview)
+        {
+            var p0 = self.CalculatePosition(previewTime);
+            var w0 = self.transform.TransformPoint(p0);
+
+            Handles.color = Color.red;
+            Handles.DrawSphere(-1, w0, Quaternion.identity, 0.5f);
         }
     }
 }
