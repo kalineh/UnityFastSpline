@@ -29,7 +29,6 @@ public class FastSplineEditor
         GUILayout.Label("");
 
         preview = GUILayout.Toggle(preview, "Preview");
-        previewAuto = GUILayout.Toggle(previewAuto, "Preview (auto)");
         previewTime = EditorGUILayout.Slider("Preview Time", previewTime, 0.0f, 1.0f);
 
         if (GUILayout.Button("TEST PB SPLINE"))
@@ -83,12 +82,6 @@ public class FastSplineEditor
             }
         }
 
-        if (preview && previewAuto)
-        {
-            previewTime += 1.0f / 60.0f;
-            previewTime %= 1.0f;
-        }
-
         if (preview)
         {
             var p0 = self.CalculatePosition(previewTime);
@@ -96,6 +89,12 @@ public class FastSplineEditor
 
             Handles.color = Color.red;
             Handles.DrawSphere(-1, w0, Quaternion.identity, 0.5f);
+
+            var pn0 = self.CalculatePositionNormalized(previewTime);
+            var wn0 = self.transform.TransformPoint(pn0);
+
+            Handles.color = Color.green;
+            Handles.DrawSphere(-1, wn0, Quaternion.identity, 0.5f);
         }
     }
 }
@@ -225,6 +224,36 @@ public class FastSpline
     }
 
     public Vector3 CalculatePosition(float t)
+    {
+        var local = t * (points.Count - 1);
+        var index = (int)local;
+        var time = local - (float)index;
+
+        var a = index - 1;
+        var b = index;
+        var c = index + 1;
+        var d = index + 2;
+
+        a = Mathf.Max(a, 0);
+        b = Mathf.Min(b, points.Count - 1);
+        c = Mathf.Min(c, points.Count - 1);
+        d = Mathf.Min(d, points.Count - 1);
+
+        var p0 = points[a];
+        var p1 = points[b];
+        var p2 = points[c];
+        var p3 = points[d];
+
+        var t1 = time;
+        var t2 = time * time;
+        var t3 = time * time * time;
+
+        var result = 0.5f * ((2.0f * p1) + (-p0 + p2) * t1 + (2.0f * p0 - 5.0f * p1 + 4.0f * p2 - p3) * t2 + (-p0 + 3.0f * p1 - 3.0f * p2 + p3) * t3);
+
+        return result;
+    }
+
+    public Vector3 CalculatePositionNormalized(float t)
     {
         var local = t * (points.Count - 1);
         var index = (int)local;
