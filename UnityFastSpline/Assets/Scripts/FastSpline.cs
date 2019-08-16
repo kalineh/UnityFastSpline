@@ -2,146 +2,6 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-/*
-// ref: http://paulbourke.net/geometry/spline/
-
-// This returns the point "output" on the spline curve.
-// The parameter "v" indicates the position, it ranges from 0 to n-t+2
-
-void SplinePoint(int* u, int n, int t, float v, XYZ* control, XYZ* output)
-{
-    int k;
-    float b;
-
-    output->x = 0;
-    output->y = 0;
-    output->z = 0;
-
-    for (k = 0; k <= n; k++)
-    {
-        b = SplineBlend(k, t, u, v);
-        output->x += control[k].x * b;
-        output->y += control[k].y * b;
-        output->z += control[k].z * b;
-    }
-}
-
-// Calculate the blending value, this is done recursively.
-// If the numerator and denominator are 0 the expression is 0.
-// If the deonimator is 0 the expression is 0
-
-float SplineBlend(int k, int t, int* u, float v)
-{
-    float value;
-
-    if (t == 1)
-    {
-        if ((u[k] <= v) && (v < u[k + 1]))
-            value = 1;
-        else
-            value = 0;
-    }
-    else
-    {
-        if ((u[k + t - 1] == u[k]) && (u[k + t] == u[k + 1]))
-            value = 0;
-        else if (u[k + t - 1] == u[k])
-            value = (u[k + t] - v) / (u[k + t] - u[k + 1]) * SplineBlend(k + 1, t - 1, u, v);
-        else if (u[k + t] == u[k + 1])
-            value = (v - u[k]) / (u[k + t - 1] - u[k]) * SplineBlend(k, t - 1, u, v);
-        else
-            value = (v - u[k]) / (u[k + t - 1] - u[k]) * SplineBlend(k, t - 1, u, v) +
-                    (u[k + t] - v) / (u[k + t] - u[k + 1]) * SplineBlend(k + 1, t - 1, u, v);
-    }
-    return (value);
-}
-
-
-// The positions of the subintervals of v and breakpoints, the position
-// on the curve are called knots. Breakpoints can be uniformly defined
-// by setting u[j] = j, a more useful series of breakpoints are defined
-// by the function below. This set of breakpoints localises changes to
-// the vicinity of the control point being modified.
-
-void SplineKnots(int* u, int n, int t)
-{
-    int j;
-
-    for (j = 0; j <= n + t; j++)
-    {
-        if (j < t)
-            u[j] = 0;
-        else if (j <= n)
-            u[j] = j - t + 1;
-        else if (j > n)
-            u[j] = n - t + 2;
-    }
-}
-
-// Create all the points along a spline curve
-// Control points "inp", "n" of them.
-// Knots "knots", degree "t".
-// Ouput curve "outp", "res" of them.
-
-void SplineCurve(XYZ* inp, int n, int* knots, int t, XYZ* outp, int res)
-{
-    int i;
-    float interval, increment;
-
-    interval = 0;
-    increment = (n - t + 2) / (float)(res - 1);
-    for (i = 0; i < res - 1; i++)
-    {
-        SplinePoint(knots, n, t, interval, inp, &(outp[i]));
-        interval += increment;
-    }
-    outp[res - 1] = inp[n];
-}
-
-
-// Example of how to call the spline functions
-// Basically one needs to create the control points, then compute
-// the knot positions, then calculate points along the curve.
-
-#define N 3
-XYZ inp[N + 1] = { 0.0, 0.0, 0.0, 1.0, 0.0, 3.0, 2.0, 0.0, 1.0, 4.0, 0.0, 4.0 };
-#define T 3
-int knots[N + T + 1];
-#define RESOLUTION 200
-XYZ outp[RESOLUTION];
-
-int main(int argc, char** argv)
-{
-    int i;
-
-    SplineKnots(knots, N, T);
-    SplineCurve(inp, N, knots, T, outp, RESOLUTION);
-
-    // Display the curve, in this case in OOGL format for GeomView
-    printf("LIST\n");
-    printf("{ = SKEL\n");
-    printf("%d %d\n", RESOLUTION, RESOLUTION - 1);
-    for (i = 0; i < RESOLUTION; i++)
-        printf("%g %g %g\n", outp[i].x, outp[i].y, outp[i].z);
-    for (i = 0; i < RESOLUTION - 1; i++)
-        printf("2 %d %d 1 1 1 1\n", i, i + 1);
-    printf("}\n");
-
-    // The axes
-    printf("{ = SKEL 3 2  0 0 4  0 0 0  4 0 0  2 0 1 0 0 1 1 2 1 2 0 0 1 1 }\n");
-
-    // Control point polygon
-    printf("{ = SKEL\n");
-    printf("%d %d\n", N + 1, N);
-    for (i = 0; i <= N; i++)
-        printf("%g %g %g\n", inp[i].x, inp[i].y, inp[i].z);
-    for (i = 0; i < N; i++)
-        printf("2 %d %d 0 1 0 1\n", i, i + 1);
-    printf("}\n");
-
-}
-*/
-
 #if UNITY_EDITOR
 using UnityEditor;
 
@@ -261,6 +121,7 @@ public static class FastSplineMath
         return p;
     }
 
+
     public static Vector3 CubicInterpolate(Vector3 p0, Vector3 p1, Vector3 p2, Vector3 p3, float t)
     {
         var u = 1.0f - t;
@@ -278,12 +139,18 @@ public static class FastSplineMath
     }
 }
 
+
+// points: N points describing spline
+// lengths: linear lengths between each segment
+
 public class FastSpline
     : MonoBehaviour
 {
     public List<Vector3> points;
 
-    private List<Vector3> knots;
+    private List<float> times;
+    private List<float> lengths;
+    private float lengthsTotal;
 
     public FastSpline()
     {
@@ -293,12 +160,65 @@ public class FastSpline
             points.Add(Vector3.zero);
             points.Add(Vector3.zero);
             points.Add(Vector3.zero);
+            RecalculateInternals();
         }
+    }
+
+    public void OnValidate()
+    {
+        RecalculateInternals();
+    }
+
+    public void RecalculateInternals()
+    {
+        lengths = new List<float>(points.Count - 1);
+        lengthsTotal = 0.0f;
+
+        for (int i = 0; i < points.Count - 1; ++i)
+        {
+            var p0 = points[i];
+            var p1 = points[i + 1];
+            var ofs = p1 - p0;
+            var len = ofs.sqrMagnitude;
+            if (len > 0.00001f)
+                len = Mathf.Sqrt(len);
+
+            lengths.Add(len);
+            lengthsTotal += len;
+        }
+
+        times = new List<float>(points.Count);
+
+        var cursor = 0.0f;
+
+        for (int i = 0; i < points.Count; ++i)
+        {
+            times[i] = cursor / lengthsTotal;
+
+            cursor += lengths[i];
+        }
+    }
+
+    public int CalculateIndex(float t)
+    {
+        var at = t * lengthsTotal;
+
+        for (int i = 0; i < lengths.Count; ++i)
+        {
+            var length = lengths[i];
+
+            at -= length;
+
+            if (at <= 0.0f)
+                return i;
+        }
+
+        return points.Count - 1;
     }
 
     public Vector3 CalculatePosition(float t)
     {
-        var index = (int)(t * (float)points.Count);
+        var index = CalculateIndex(t);
         var time = (t / (float)points.Count) * 3.0f;
         var point = FastSplineMath.QuadraticInterpolate(points, index, t);
 
@@ -347,6 +267,8 @@ public class FastSpline
     }
 #endif
 }
+
+// ref: http://paulbourke.net/geometry/spline/
 
 public class PaulBourkeSplineTest
 {
@@ -470,44 +392,4 @@ public class PaulBourkeSplineTest
         for (int i = 0; i < RESOLUTION; ++i)
             Debug.LogFormat("{0}: {1},{2},{3}", i, outp[i].x, outp[i].y, outp[i].z);
     }
-
-//#define N 3
-//XYZ inp[N + 1] = { 0.0, 0.0, 0.0, 1.0, 0.0, 3.0, 2.0, 0.0, 1.0, 4.0, 0.0, 4.0 };
-//#define T 3
-//int knots[N + T + 1];
-//#define RESOLUTION 200
-//XYZ outp[RESOLUTION];
-
-        /*
-    int main(int argc, char** argv)
-    {
-        int i;
-
-        SplineKnots(knots, N, T);
-        SplineCurve(inp, N, knots, T, outp, RESOLUTION);
-
-        // Display the curve, in this case in OOGL format for GeomView
-        printf("LIST\n");
-        printf("{ = SKEL\n");
-        printf("%d %d\n", RESOLUTION, RESOLUTION - 1);
-        for (i = 0; i < RESOLUTION; i++)
-            printf("%g %g %g\n", outp[i].x, outp[i].y, outp[i].z);
-        for (i = 0; i < RESOLUTION - 1; i++)
-            printf("2 %d %d 1 1 1 1\n", i, i + 1);
-        printf("}\n");
-
-        // The axes
-        printf("{ = SKEL 3 2  0 0 4  0 0 0  4 0 0  2 0 1 0 0 1 1 2 1 2 0 0 1 1 }\n");
-
-        // Control point polygon
-        printf("{ = SKEL\n");
-        printf("%d %d\n", N + 1, N);
-        for (i = 0; i <= N; i++)
-            printf("%g %g %g\n", inp[i].x, inp[i].y, inp[i].z);
-        for (i = 0; i < N; i++)
-            printf("2 %d %d 0 1 0 1\n", i, i + 1);
-        printf("}\n");
-
-    }
-    */
 }
