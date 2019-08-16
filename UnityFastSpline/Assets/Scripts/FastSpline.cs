@@ -169,6 +169,9 @@ public class FastSplineEditor
 
         preview = GUILayout.Toggle(preview, "Preview");
         previewTime = EditorGUILayout.Slider("Preview Time", previewTime, 0.0f, 1.0f);
+
+        if (GUILayout.Button("TEST PB SPLINE"))
+            PaulBourkeSplineTest.TestSpline();
     }
 
     public void OnSceneGUI()
@@ -343,4 +346,168 @@ public class FastSpline
         }
     }
 #endif
+}
+
+public class PaulBourkeSplineTest
+{
+    // This returns the point "output" on the spline curve.
+    // The parameter "v" indicates the position, it ranges from 0 to n-t+2
+    
+    public static Vector3 SplinePoint(int[] u, int n, int t, float v, Vector3[] control)
+    {
+        Vector3 output = Vector3.zero;
+
+        int k;
+        float b;
+
+        for (k = 0; k <= n; k++)
+        {
+            b = SplineBlend(k, t, u, v);
+            output.x += control[k].x * b;
+            output.y += control[k].y * b;
+            output.z += control[k].z * b;
+        }
+
+        return output;
+    }
+
+    // Calculate the blending value, this is done recursively.
+    // If the numerator and denominator are 0 the expression is 0.
+    // If the deonimator is 0 the expression is 0
+
+    public static float SplineBlend(int k, int t, int[] u, float v)
+    {
+        float value;
+
+        if (t == 1)
+        {
+            if ((u[k] <= v) && (v < u[k + 1]))
+                value = 1;
+            else
+                value = 0;
+        }
+        else
+        {
+            if ((u[k + t - 1] == u[k]) && (u[k + t] == u[k + 1]))
+                value = 0;
+            else if (u[k + t - 1] == u[k])
+                value = (u[k + t] - v) / (u[k + t] - u[k + 1]) * SplineBlend(k + 1, t - 1, u, v);
+            else if (u[k + t] == u[k + 1])
+                value = (v - u[k]) / (u[k + t - 1] - u[k]) * SplineBlend(k, t - 1, u, v);
+            else
+                value = (v - u[k]) / (u[k + t - 1] - u[k]) * SplineBlend(k, t - 1, u, v) +
+                        (u[k + t] - v) / (u[k + t] - u[k + 1]) * SplineBlend(k + 1, t - 1, u, v);
+        }
+        return (value);
+    }
+
+
+    // The positions of the subintervals of v and breakpoints, the position
+    // on the curve are called knots. Breakpoints can be uniformly defined
+    // by setting u[j] = j, a more useful series of breakpoints are defined
+    // by the function below. This set of breakpoints localises changes to
+    // the vicinity of the control point being modified.
+
+    public static void SplineKnots(int[] u, int n, int t)
+    {
+        int j;
+
+        for (j = 0; j <= n + t; j++)
+        {
+            if (j < t)
+                u[j] = 0;
+            else if (j <= n)
+                u[j] = j - t + 1;
+            else if (j > n)
+                u[j] = n - t + 2;
+        }
+    }
+
+    // Create all the points along a spline curve
+    // Control points "inp", "n" of them.
+    // Knots "knots", degree "t".
+    // Ouput curve "outp", "res" of them.
+
+    public static void SplineCurve(Vector3[] inp, int n, int[] knots, int t, Vector3[] outp, int res)
+    {
+        int i;
+        float interval, increment;
+
+        interval = 0;
+        increment = (n - t + 2) / (float)(res - 1);
+        for (i = 0; i < res - 1; i++)
+        {
+            outp[i] = SplinePoint(knots, n, t, interval, inp);
+            interval += increment;
+        }
+        outp[res - 1] = inp[n];
+    }
+
+
+    // Example of how to call the spline functions
+    // Basically one needs to create the control points, then compute
+    // the knot positions, then calculate points along the curve.
+
+    public static int N = 3;
+    public static int T = 3;
+    public static int RESOLUTION = 200;
+    public static int[] knots = new int[N + T + 1];
+    public static Vector3[] outp = new Vector3[RESOLUTION];
+
+    public static void TestSpline()
+    {
+        var inp = new Vector3[]
+        {
+            new Vector3(0.0f, 0.0f, 0.0f),
+            new Vector3(1.0f, 0.0f, 3.0f),
+            new Vector3(2.0f, 0.0f, 1.0f),
+            new Vector3(4.0f, 0.0f, 4.0f),
+        };
+
+        SplineKnots(knots, N, T);
+        SplineCurve(inp, N, knots, T, outp, RESOLUTION);
+
+        for (int i = 0; i < RESOLUTION; ++i)
+            Debug.LogFormat("{0}: {1},{2},{3}", i, outp[i].x, outp[i].y, outp[i].z);
+    }
+
+//#define N 3
+//XYZ inp[N + 1] = { 0.0, 0.0, 0.0, 1.0, 0.0, 3.0, 2.0, 0.0, 1.0, 4.0, 0.0, 4.0 };
+//#define T 3
+//int knots[N + T + 1];
+//#define RESOLUTION 200
+//XYZ outp[RESOLUTION];
+
+        /*
+    int main(int argc, char** argv)
+    {
+        int i;
+
+        SplineKnots(knots, N, T);
+        SplineCurve(inp, N, knots, T, outp, RESOLUTION);
+
+        // Display the curve, in this case in OOGL format for GeomView
+        printf("LIST\n");
+        printf("{ = SKEL\n");
+        printf("%d %d\n", RESOLUTION, RESOLUTION - 1);
+        for (i = 0; i < RESOLUTION; i++)
+            printf("%g %g %g\n", outp[i].x, outp[i].y, outp[i].z);
+        for (i = 0; i < RESOLUTION - 1; i++)
+            printf("2 %d %d 1 1 1 1\n", i, i + 1);
+        printf("}\n");
+
+        // The axes
+        printf("{ = SKEL 3 2  0 0 4  0 0 0  4 0 0  2 0 1 0 0 1 1 2 1 2 0 0 1 1 }\n");
+
+        // Control point polygon
+        printf("{ = SKEL\n");
+        printf("%d %d\n", N + 1, N);
+        for (i = 0; i <= N; i++)
+            printf("%g %g %g\n", inp[i].x, inp[i].y, inp[i].z);
+        for (i = 0; i < N; i++)
+            printf("2 %d %d 0 1 0 1\n", i, i + 1);
+        printf("}\n");
+
+    }
+    */
 }
