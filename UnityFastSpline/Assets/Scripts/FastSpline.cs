@@ -12,6 +12,7 @@ public class FastSplineEditor
     private int selectedIndex = -1;
 
     private bool preview;
+    private bool previewAuto;
     private float previewTime;
 
     public override void OnInspectorGUI()
@@ -28,6 +29,7 @@ public class FastSplineEditor
         GUILayout.Label("");
 
         preview = GUILayout.Toggle(preview, "Preview");
+        previewAuto = GUILayout.Toggle(previewAuto, "Preview (auto)");
         previewTime = EditorGUILayout.Slider("Preview Time", previewTime, 0.0f, 1.0f);
 
         if (GUILayout.Button("TEST PB SPLINE"))
@@ -79,6 +81,12 @@ public class FastSplineEditor
                 if (Handles.Button(w0, Quaternion.identity, 0.5f, 0.5f, Handles.RectangleHandleCap))
                     selectedIndex = i;
             }
+        }
+
+        if (preview && previewAuto)
+        {
+            previewTime += 1.0f / 60.0f;
+            previewTime %= 1.0f;
         }
 
         if (preview)
@@ -193,7 +201,7 @@ public class FastSpline
 
         for (int i = 0; i < points.Count; ++i)
         {
-            times[i] = cursor / lengthsTotal;
+            times.Add(cursor / lengthsTotal);
 
             cursor += lengths[i];
         }
@@ -218,11 +226,32 @@ public class FastSpline
 
     public Vector3 CalculatePosition(float t)
     {
-        var index = CalculateIndex(t);
-        var time = (t / (float)points.Count) * 3.0f;
-        var point = FastSplineMath.QuadraticInterpolate(points, index, t);
+        var local = t * (points.Count - 1);
+        var index = (int)local;
+        var time = local - (float)index;
 
-        return point;
+        var a = index - 1;
+        var b = index;
+        var c = index + 1;
+        var d = index + 2;
+
+        a = Mathf.Max(a, 0);
+        b = Mathf.Min(b, points.Count - 1);
+        c = Mathf.Min(c, points.Count - 1);
+        d = Mathf.Min(d, points.Count - 1);
+
+        var p0 = points[a];
+        var p1 = points[b];
+        var p2 = points[c];
+        var p3 = points[d];
+
+        var t1 = time;
+        var t2 = time * time;
+        var t3 = time * time * time;
+
+        var result = 0.5f * ((2.0f * p1) + (-p0 + p2) * t1 + (2.0f * p0 - 5.0f * p1 + 4.0f * p2 - p3) * t2 + (-p0 + 3.0f * p1 - 3.0f * p2 + p3) * t3);
+
+        return result;
     }
 
     public float CalculateApproximateArcLength()
@@ -237,12 +266,12 @@ public class FastSpline
             var p0 = CalculatePosition(t0);
             var p1 = CalculatePosition(t1);
             var ofs = (p1 - p0);
+            var lsq = ofs.sqrMagnitude;
+            if (lsq > Mathf.Epsilon)
+                lsq = Mathf.Sqrt(lsq);
 
-            sum += ofs.sqrMagnitude; 
+            sum += lsq;
         }
-
-        if (sum > 0.00001f)
-            sum = Mathf.Sqrt(sum);
 
         return sum;
     }
