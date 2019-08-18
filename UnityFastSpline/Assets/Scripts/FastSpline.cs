@@ -26,6 +26,11 @@ public class FastSplineEditor
         GUILayout.Label(string.Format("Points: {0}", self.points.Count));
         GUILayout.Label(string.Format("Approximate Arc Length: {0}", self.CalculateApproximateArcLength()));
 
+        for (int i = 0; i < self.lengths.Count; ++i)
+            GUILayout.Label(string.Format("Length: {0}-{1}: {2}", i, i + 1, self.lengths[i]));
+        for (int i = 0; i < self.times.Count; ++i)
+            GUILayout.Label(string.Format("Times: {0}: {1}", i, self.times[i]));
+
         GUILayout.Label("");
 
         preview = GUILayout.Toggle(preview, "Preview");
@@ -38,19 +43,6 @@ public class FastSplineEditor
     public void OnSceneGUI()
     {
         var self = target as FastSpline;
-        var steps = 10;
-
-        for (int i = 1; i < steps; ++i)
-        {
-            var t0 = 1.0f / (float)steps * (float)(i - 1);
-            var t1 = 1.0f / (float)steps * (float)(i);
-            var p0 = self.CalculatePosition(t0);
-            var p1 = self.CalculatePosition(t1);
-            var w0 = self.transform.TransformPoint(p0);
-            var w1 = self.transform.TransformPoint(p1);
-
-            Handles.DrawLine(w0, w1);
-        }
 
         for (int i = 0; i < self.points.Count; ++i)
         {
@@ -59,8 +51,8 @@ public class FastSplineEditor
 
             if (selectedIndex == i)
             {
-                Handles.color = Color.blue;
-                Handles.Button(w0, Quaternion.identity, 0.5f, 0.5f, Handles.RectangleHandleCap);
+                //Handles.color = Color.blue;
+                //Handles.Button(w0, Quaternion.identity, 0.25f, 0.25f, Handles.RectangleHandleCap);
 
                 var refPosition = p0;
                 var refRotation = Quaternion.identity;
@@ -71,13 +63,18 @@ public class FastSplineEditor
 
                 refPosition = self.transform.InverseTransformPoint(refPosition);
 
-                self.points[i] = refPosition;
+                var dirty = self.points[i] != refPosition;
+                if (dirty)
+                {
+                    self.points[i] = refPosition;
+                    self.RecalculateInternals();
+                }
             }
             else
             {
                 Handles.color = Color.white;
 
-                if (Handles.Button(w0, Quaternion.identity, 0.5f, 0.5f, Handles.RectangleHandleCap))
+                if (Handles.Button(w0, Quaternion.identity, 0.25f, 0.25f, Handles.RectangleHandleCap))
                     selectedIndex = i;
             }
         }
@@ -94,7 +91,7 @@ public class FastSplineEditor
             var wn0 = self.transform.TransformPoint(pn0);
 
             Handles.color = Color.green;
-            Handles.DrawSphere(-1, wn0, Quaternion.identity, 0.5f);
+            Handles.DrawCube(-1, wn0, Quaternion.identity, 0.5f);
         }
     }
 }
@@ -155,9 +152,14 @@ public class FastSpline
 {
     public List<Vector3> points;
 
-    private List<float> times;
-    private List<float> lengths;
-    private float lengthsTotal;
+    [System.NonSerialized]
+    public List<float> times;
+
+    [System.NonSerialized]
+    public List<float> lengths;
+
+    [System.NonSerialized]
+    public float lengthsTotal;
 
     public FastSpline()
     {
@@ -167,6 +169,7 @@ public class FastSpline
             points.Add(Vector3.zero);
             points.Add(Vector3.zero);
             points.Add(Vector3.zero);
+
             RecalculateInternals();
         }
     }
@@ -198,12 +201,27 @@ public class FastSpline
 
         var cursor = 0.0f;
 
-        for (int i = 0; i < points.Count; ++i)
-        {
-            times.Add(cursor / lengthsTotal);
+        times.Add(0.0f);
 
+        for (int i = 1; i < lengths.Count - 1; ++i)
+        {
             cursor += lengths[i];
+
+            var segment = lengthsTotal / lengths.Count;
+            var actualL = lengths[i];
+            var actualR = lengths[i + 1];
+            var average = (actualL + actualR) * 0.5f;
+            var ratio = segment / average;
+
+            //var ti = 1.0f / (points.Count - 1) * i;
+            //var tn = (cursor / lengthsTotal);
+            //var ratio = ti / tn;
+            //var t = ti * ratio;
+
+            times.Add(ratio);
         }
+
+        times.Add(1.0f);
     }
 
     public int CalculateIndex(float t)
@@ -255,7 +273,7 @@ public class FastSpline
 
     public Vector3 CalculatePositionNormalized(float t)
     {
-        var local = t * (points.Count - 1);
+        var local = t * (times.Count - 1);
         var index = (int)local;
         var time = local - (float)index;
 
@@ -265,22 +283,32 @@ public class FastSpline
         var d = index + 2;
 
         a = Mathf.Max(a, 0);
-        b = Mathf.Min(b, points.Count - 1);
-        c = Mathf.Min(c, points.Count - 1);
-        d = Mathf.Min(d, points.Count - 1);
+        b = Mathf.Min(b, times.Count - 1);
+        c = Mathf.Min(c, times.Count - 1);
+        d = Mathf.Min(d, times.Count - 1);
 
-        var p0 = points[a];
-        var p1 = points[b];
-        var p2 = points[c];
-        var p3 = points[d];
+        var p0 = times[a];
+        var p1 = times[b];
+        var p2 = times[c];
+        var p3 = times[d];
 
         var t1 = time;
         var t2 = time * time;
         var t3 = time * time * time;
 
         var result = 0.5f * ((2.0f * p1) + (-p0 + p2) * t1 + (2.0f * p0 - 5.0f * p1 + 4.0f * p2 - p3) * t2 + (-p0 + 3.0f * p1 - 3.0f * p2 + p3) * t3);
+        var rescaled = result;
 
-        return result;
+        if (float.IsNaN(rescaled))
+            rescaled = 0.0f;
+        rescaled = Mathf.Clamp01(rescaled);
+
+        var resultPosition = CalculatePosition(rescaled);
+
+        Debug.LogFormat("TIME: {0} -> {1} = {2}", t, rescaled, result);
+        //Debug.LogFormat("TIME: {0} -> {1}: (POS: {2} -> {3}), ratio: {4}, {5}", t, result, CalculatePosition(t).x, resultPosition.x, t / result, result / t);
+
+        return resultPosition;
     }
 
     public float CalculateApproximateArcLength()
@@ -308,7 +336,7 @@ public class FastSpline
 #if UNITY_EDITOR
     public void OnDrawGizmos()
     {
-        var steps = 10;
+        var steps = 100;
 
         for (int i = 1; i < steps; ++i)
         {
@@ -319,8 +347,47 @@ public class FastSpline
             var w0 = transform.TransformPoint(p0);
             var w1 = transform.TransformPoint(p1);
 
-            Gizmos.color = Color.Lerp(Color.blue, Color.clear, 0.5f);
+            Gizmos.color = Color.Lerp(Color.white, Color.clear, 0.5f);
             Gizmos.DrawLine(w0, w1);
+        }
+    }
+
+    public void OnDrawGizmosSelected()
+    {
+        var steps = 100;
+
+        for (int i = 1; i < steps; ++i)
+        {
+            var t0 = 1.0f / (float)steps * (float)(i - 1);
+            var t1 = 1.0f / (float)steps * (float)(i);
+            var p0 = CalculatePosition(t0);
+            var p1 = CalculatePosition(t1);
+            var w0 = transform.TransformPoint(p0);
+            var w1 = transform.TransformPoint(p1);
+
+            Gizmos.color = Color.Lerp(Color.white, Color.clear, 0.5f);
+            Gizmos.DrawLine(w0, w1);
+        }
+
+        for (int i = 1; i < points.Count; ++i)
+        {
+            var p0 = points[i - 1];
+            var p1 = points[i];
+            var w0 = transform.TransformPoint(p0);
+            var w1 = transform.TransformPoint(p1);
+
+            Gizmos.color = Color.Lerp(Color.white, Color.blue, 0.5f);
+            Gizmos.DrawLine(w0, w1);
+        }
+
+        for (int i = 0; i < points.Count; ++i)
+        {
+            var t = 1.0f / (points.Count - 1) * i;
+            var p = CalculatePositionNormalized(t);
+            var w = transform.TransformPoint(p);
+
+            Gizmos.color = Color.Lerp(Color.red, Color.blue, t);
+            Gizmos.DrawSphere(w, 0.25f);
         }
     }
 #endif
