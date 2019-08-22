@@ -3,8 +3,10 @@ using System.Collections.Generic;
 using UnityEngine;
 
 // TODO:
-// - if single point too outlier, normalized times will not have enough points to balance exit slope
-// - maybe can calc diff and renormalize
+// - time calc should probably weight two adjacent lengths
+// - transform handle 'soft' mode, pull nearby verts with falloff
+// - nearest point
+// - distance walk
 
 #if UNITY_EDITOR
 using UnityEditor;
@@ -28,7 +30,16 @@ public class FastSplineEditor
         GUILayout.Label("");
 
         GUILayout.Label(string.Format("Points: {0}", self.points.Count));
+
         GUILayout.Label(string.Format("Approximate Arc Length: {0}", self.CalculateApproximateArcLength()));
+        GUILayout.Label(string.Format("Longest segment: {0}", self.CalculateLongestSegment()));
+
+        var lengthTotal = self.CalculateApproximateArcLength();
+        var lengthLongest = self.CalculateLongestSegment();
+        var longestRatio = lengthLongest / lengthTotal;
+
+        if (longestRatio > 0.15f)
+            EditorGUILayout.HelpBox("single point quite far outlier", MessageType.Warning);
 
         for (int i = 0; i < self.lengths.Count; ++i)
             GUILayout.Label(string.Format("Length: {0}-{1}: {2}", i, i + 1, self.lengths[i]));
@@ -70,6 +81,7 @@ public class FastSplineEditor
                 var dirty = self.points[i] != refPosition;
                 if (dirty)
                 {
+                    Undo.RecordObject(self, "Move spline point");
                     self.points[i] = refPosition;
                     self.RecalculateInternals();
                 }
@@ -204,9 +216,7 @@ public class FastSpline
         times = new List<float>(points.Count);
 
         var step = 1.0f / (points.Count - 1);
-        var accumulate = 0.0f;
         var time = 0.0f;
-        var difference = 0.0f;
 
         times.Add(0.0f);
 
@@ -219,8 +229,6 @@ public class FastSpline
             time += step * ratio * lengthsTotal;
 
             times.Add(time);
-
-            accumulate += lengths[i];
         }
 
         // normalize 
@@ -342,6 +350,20 @@ public class FastSpline
         }
 
         return sum;
+    }
+
+    public float CalculateLongestSegment()
+    {
+        var longest = 0.0f;
+
+        for (int i = 1; i < lengths.Count; ++i)
+        {
+            var length = lengths[i];
+            if (length > longest)
+                longest = length;
+        }
+
+        return longest;
     }
 
 #if UNITY_EDITOR
