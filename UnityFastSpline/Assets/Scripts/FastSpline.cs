@@ -231,7 +231,6 @@ public class FastSpline
             times.Add(time);
         }
 
-        // normalize 
         var timeNormalize = 1.0f / times[times.Count - 1];
         for (int i = 0; i < times.Count; ++i)
             times[i] = times[i] * timeNormalize;
@@ -324,9 +323,6 @@ public class FastSpline
         var resultTime = CalculateTimeNormalized(t);
         var resultPosition = CalculatePosition(resultTime);
 
-        //Debug.LogFormat("TIME: {0} -> {1} = {2}", t, rescaled, result);
-        //Debug.LogFormat("TIME: {0} -> {1}: (POS: {2} -> {3}), ratio: {4}, {5}", t, result, CalculatePosition(t).x, resultPosition.x, t / result, result / t);
-
         return resultPosition;
     }
 
@@ -364,6 +360,14 @@ public class FastSpline
         }
 
         return longest;
+    }
+
+    public Vector3 Project(Vector3 p)
+    {
+        var iterations = 8;
+        var time = 0.0f;
+
+        return Vector3.zero;
     }
 
 #if UNITY_EDITOR
