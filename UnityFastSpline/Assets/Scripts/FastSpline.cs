@@ -2,6 +2,10 @@
 using System.Collections.Generic;
 using UnityEngine;
 
+// TODO:
+// - if single point too outlier, normalized times will not have enough points to balance exit slope
+// - maybe can calc diff and renormalize
+
 #if UNITY_EDITOR
 using UnityEditor;
 
@@ -199,29 +203,30 @@ public class FastSpline
 
         times = new List<float>(points.Count);
 
-        var cursor = 0.0f;
+        var step = 1.0f / (points.Count - 1);
+        var accumulate = 0.0f;
+        var time = 0.0f;
+        var difference = 0.0f;
 
         times.Add(0.0f);
 
-        for (int i = 1; i < lengths.Count - 1; ++i)
+        for (int i = 0; i < lengths.Count; ++i)
         {
-            cursor += lengths[i];
+            var expected = step;
+            var actual = lengths[i];
+            var ratio = expected / actual;
 
-            var segment = lengthsTotal / lengths.Count;
-            var actualL = lengths[i];
-            var actualR = lengths[i + 1];
-            var average = (actualL + actualR) * 0.5f;
-            var ratio = segment / average;
+            time += step * ratio * lengthsTotal;
 
-            //var ti = 1.0f / (points.Count - 1) * i;
-            //var tn = (cursor / lengthsTotal);
-            //var ratio = ti / tn;
-            //var t = ti * ratio;
+            times.Add(time);
 
-            times.Add(ratio);
+            accumulate += lengths[i];
         }
 
-        times.Add(1.0f);
+        // normalize 
+        var timeNormalize = 1.0f / times[times.Count - 1];
+        for (int i = 0; i < times.Count; ++i)
+            times[i] = times[i] * timeNormalize;
     }
 
     public int CalculateIndex(float t)
@@ -271,7 +276,7 @@ public class FastSpline
         return result;
     }
 
-    public Vector3 CalculatePositionNormalized(float t)
+    public float CalculateTimeNormalized(float t)
     {
         var local = t * (times.Count - 1);
         var index = (int)local;
@@ -303,9 +308,15 @@ public class FastSpline
             rescaled = 0.0f;
         rescaled = Mathf.Clamp01(rescaled);
 
-        var resultPosition = CalculatePosition(rescaled);
+        return rescaled;
+    }
 
-        Debug.LogFormat("TIME: {0} -> {1} = {2}", t, rescaled, result);
+    public Vector3 CalculatePositionNormalized(float t)
+    {
+        var resultTime = CalculateTimeNormalized(t);
+        var resultPosition = CalculatePosition(resultTime);
+
+        //Debug.LogFormat("TIME: {0} -> {1} = {2}", t, rescaled, result);
         //Debug.LogFormat("TIME: {0} -> {1}: (POS: {2} -> {3}), ratio: {4}, {5}", t, result, CalculatePosition(t).x, resultPosition.x, t / result, result / t);
 
         return resultPosition;
@@ -388,6 +399,30 @@ public class FastSpline
 
             Gizmos.color = Color.Lerp(Color.red, Color.blue, t);
             Gizmos.DrawSphere(w, 0.25f);
+        }
+
+        for (int i = 0; i < times.Count; ++i)
+        {
+            var a = points[0];
+            var b = points[points.Count - 1];
+            var t = times[i];
+            var p = a + (b - a) * t;
+            var w = transform.TransformPoint(p);
+
+            Gizmos.color = Color.Lerp(Color.green, Color.white, t);
+            Gizmos.DrawCube(w, Vector3.one * 0.25f);
+        }
+
+        for (int i = 0; i < 50; ++i)
+        {
+            var a = points[0];
+            var b = points[points.Count - 1];
+            var t = CalculateTimeNormalized(1.0f / 50.0f * i);
+            var p = a + (b - a) * t;
+            var w = transform.TransformPoint(p);
+
+            Gizmos.color = Color.Lerp(Color.blue, Color.blue, t);
+            Gizmos.DrawCube(w-Vector3.up * 0.5f, Vector3.one * 0.10f);
         }
     }
 #endif

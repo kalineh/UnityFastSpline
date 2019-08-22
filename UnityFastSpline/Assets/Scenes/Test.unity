@@ -372,10 +372,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   points:
   - {x: 0, y: 0, z: 0}
-  - {x: 2.5, y: 1, z: 0}
-  - {x: 5, y: 1.98, z: 0}
-  - {x: 7.5, y: 1, z: 0}
-  - {x: 9.903426, y: 0, z: 0}
+  - {x: 2, y: 0.06, z: 0}
+  - {x: 3, y: 0, z: 0}
+  - {x: 18, y: 0, z: 0}
+  - {x: 20, y: 0, z: 0}
 --- !u!4 &278791448
 Transform:
   m_ObjectHideFlags: 0
@@ -421,15 +421,20 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   points:
   - {x: 0, y: 0, z: 0}
-  - {x: 1, y: 1, z: 0}
-  - {x: 2, y: 2, z: 0}
-  - {x: 3, y: 3, z: 0}
-  - {x: 4, y: 2, z: 0}
-  - {x: 5, y: 1, z: 0}
-  - {x: 6, y: 0, z: 0}
-  - {x: 7, y: 1, z: 0}
-  - {x: 8, y: 2, z: 0}
-  - {x: 9.98579, y: 1.746979, z: 0}
+  - {x: 1, y: 0, z: 0}
+  - {x: 2, y: 0, z: 0}
+  - {x: 3, y: 0, z: 0}
+  - {x: 4, y: 1, z: 0}
+  - {x: 5, y: 2, z: 0}
+  - {x: 6, y: 1, z: 0}
+  - {x: 7, y: 0, z: 0}
+  - {x: 8, y: 0, z: 0}
+  - {x: 9, y: 1, z: 0}
+  - {x: 10, y: 2, z: 0}
+  - {x: 11, y: 1, z: 0}
+  - {x: 12, y: 0, z: 0}
+  - {x: 13, y: 0, z: 0}
+  - {x: 14, y: 0, z: 0}
 --- !u!4 &307465972
 Transform:
   m_ObjectHideFlags: 0
